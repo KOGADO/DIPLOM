@@ -1,0 +1,56 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Ведомость группы</h1>
+
+<div class="panel p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label small muted">Группа</label>
+      <select class="form-select" name="group">
+        <option value="">Все</option>
+        {% for grp in groups %}
+        <option value="{{ grp.id }}" {% if selected.group == grp.id|stringformat:'s' %}selected{% endif %}>{{ grp.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small muted">Предмет</label>
+      <select class="form-select" name="subject">
+        <option value="">Все</option>
+        {% for subj in subjects %}
+        <option value="{{ subj.id }}" {% if selected.subject == subj.id|stringformat:'s' %}selected{% endif %}>{{ subj.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small muted">Семестр</label>
+      <select class="form-select" name="semester">
+        <option value="">Все</option>
+        {% for sem in semesters %}
+        <option value="{{ sem }}" {% if selected.semester == sem %}selected{% endif %}>{{ sem }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Показать</button>
+      <button class="btn btn-outline-success" type="submit" name="export" value="csv">CSV</button>
+      <a class="btn btn-outline-secondary" href="{% url 'report_group_statement' %}">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="panel p-3">
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Курс</th><th>Студент</th><th>Средний</th><th>Итог</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr><td>{{ row.course }}</td><td>{{ row.student }}</td><td>{{ row.avg|floatformat:2 }}</td><td><strong>{{ row.final }}</strong></td></tr>
+        {% empty %}
+        <tr><td colspan="4" class="muted">Данных нет. Выберите фильтры и повторите.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

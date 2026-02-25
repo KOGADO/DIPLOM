@@ -1,0 +1,261 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="page-title mb-1">Журнал · {{ course.subject }} · {{ course.group }}</h1>
+    <div class="muted">Семестр: {{ course.semester }} | Преподаватель: {{ course.teacher }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'course_detail' course.id %}">Назад к курсу</a>
+  </div>
+</div>
+
+<div class="panel p-3 mb-3">
+  <div class="d-flex flex-wrap gap-3 align-items-end">
+    {% if can_edit %}
+    <form method="post" class="d-flex gap-2 align-items-end">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_lesson">
+      <div>
+        <label class="form-label mb-1">Новая дата занятия</label>
+        <input class="form-control" type="date" name="lesson_date" required>
+      </div>
+      <div class="flex-grow-1" style="min-width:220px">
+        <label class="form-label mb-1">Тема (опционально)</label>
+        <input class="form-control" type="text" name="topic" placeholder="Тема занятия">
+      </div>
+      <button class="btn btn-primary" type="submit">Добавить дату</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="small muted mt-2">Обозначения: <strong>2-5</strong> — оценка, <strong>Н</strong> — отсутствовал, <strong>П</strong> — присутствовал, <strong>О</strong> — опоздал, пусто — очистить ячейку.</div>
+</div>
+
+<div class="panel p-3">
+  {% if lessons %}
+    <form method="post" id="journal-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_grid">
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle journal-table">
+          <thead>
+            <tr>
+              <th class="sticky-col">Студент</th>
+              {% for lesson in lessons %}
+              <th class="text-center journal-head-cell" style="min-width:84px">
+                <div class="lesson-head">
+                  <div class="lesson-date">{{ lesson.date|date:"d.m" }}</div>
+                  {% if lesson.topic %}
+                  <details class="topic-details">
+                    <summary class="small muted">{{ lesson.topic|truncatechars:18 }}</summary>
+                    <div class="small topic-full">{{ lesson.topic }}</div>
+                  </details>
+                  {% else %}
+                  <div class="small muted">-</div>
+                  {% endif %}
+                  {% if can_edit %}
+                  <input
+                    class="form-control form-control-sm topic-input"
+                    type="text"
+                    value="{{ lesson.topic }}"
+                    placeholder="Тема занятия"
+                    data-lesson-id="{{ lesson.id }}"
+                    data-last-value="{{ lesson.topic }}"
+                  >
+                  <div class="small muted topic-save-state" data-state-for="{{ lesson.id }}"></div>
+                  {% endif %}
+                </div>
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="sticky-col">{{ row.student }}</td>
+              {% for cell in row.cells %}
+              <td class="text-center">
+                {% if can_edit %}
+                <input
+                  class="form-control form-control-sm text-center journal-input"
+                  name="mark_{{ row.student.id }}_{{ cell.lesson.id }}"
+                  value="{{ cell.mark }}"
+                  maxlength="1"
+                  data-row="{{ cell.row_idx }}"
+                  data-col="{{ cell.col_idx }}"
+                  autocomplete="off"
+                >
+                {% else %}
+                <span class="fw-semibold">{{ cell.mark|default:'-' }}</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if can_edit %}
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-success" type="submit">Сохранить журнал</button>
+        <button class="btn btn-outline-secondary" type="button" id="clear-row">Очистить выделенную строку</button>
+      </div>
+      {% endif %}
+    </form>
+  {% else %}
+    <div class="muted">Пока нет занятий. Добавьте первую дату выше.</div>
+  {% endif %}
+</div>
+
+<style>
+  .journal-table .sticky-col {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 2;
+    min-width: 240px;
+  }
+  .journal-input {
+    width: 56px;
+    margin: 0 auto;
+    font-weight: 700;
+  }
+  .journal-head-cell {
+    vertical-align: top;
+  }
+  .lesson-head {
+    min-height: 122px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: .25rem;
+  }
+  .lesson-date {
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    min-height: 1.2rem;
+  }
+  .topic-details > summary {
+    cursor: pointer;
+    list-style: none;
+    text-align: center;
+  }
+  .topic-details > summary::-webkit-details-marker {
+    display: none;
+  }
+  .topic-full {
+    margin-top: .25rem;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.2;
+  }
+  .topic-input {
+    min-width: 140px;
+  }
+  .topic-save-state {
+    min-height: 1rem;
+    text-align: center;
+  }
+</style>
+
+{% if can_edit and lessons %}
+<script>
+  (() => {
+    const inputs = Array.from(document.querySelectorAll('.journal-input'));
+    const map = new Map(inputs.map((el) => [`${el.dataset.row}:${el.dataset.col}`, el]));
+    const topicInputs = Array.from(document.querySelectorAll('.topic-input'));
+    const csrfTokenInput = document.querySelector('#journal-form input[name=\"csrfmiddlewaretoken\"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+    let activeRow = null;
+
+    function normalize(v) {
+      const raw = (v || '').trim().toUpperCase();
+      if (!raw) return '';
+      const ch = raw[0];
+      if (['2','3','4','5','Н','N','П','P','О','L'].includes(ch)) return ch;
+      return '';
+    }
+
+    function move(el, dRow, dCol) {
+      const row = Number(el.dataset.row) + dRow;
+      const col = Number(el.dataset.col) + dCol;
+      const next = map.get(`${row}:${col}`);
+      if (next) {
+        next.focus();
+        next.select();
+      }
+    }
+
+    inputs.forEach((el) => {
+      el.addEventListener('focus', () => {
+        activeRow = Number(el.dataset.row);
+      });
+
+      el.addEventListener('input', () => {
+        el.value = normalize(el.value);
+        if (el.value) move(el, 0, 1);
+      });
+
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') { e.preventDefault(); move(el, 0, 1); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); move(el, 0, -1); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); move(el, -1, 0); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); move(el, 1, 0); }
+      });
+    });
+
+    const clearBtn = document.getElementById('clear-row');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (activeRow === null) return;
+        inputs.filter((el) => Number(el.dataset.row) === activeRow).forEach((el) => { el.value = ''; });
+      });
+    }
+
+    async function saveTopic(input) {
+      const lessonId = input.dataset.lessonId;
+      const nextValue = (input.value || '').trim();
+      const prevValue = input.dataset.lastValue || '';
+      const state = document.querySelector(`[data-state-for=\"${lessonId}\"]`);
+
+      if (nextValue === prevValue) return;
+      if (state) state.textContent = 'Сохранение...';
+
+      try {
+        const formData = new FormData();
+        formData.append('action', 'update_topic');
+        formData.append('lesson_id', lessonId);
+        formData.append('topic', nextValue);
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('save_failed');
+        input.dataset.lastValue = nextValue;
+        if (state) state.textContent = 'Сохранено';
+      } catch (e) {
+        if (state) state.textContent = 'Ошибка сохранения';
+      }
+    }
+
+    topicInputs.forEach((input) => {
+      input.addEventListener('blur', () => { saveTopic(input); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

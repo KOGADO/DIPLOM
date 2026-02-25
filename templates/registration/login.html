@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<style>
+  .auth-wrap {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .auth-card {
+    border: 1px solid rgba(255, 255, 255, .5);
+    border-radius: 18px;
+    box-shadow: 0 14px 35px rgba(10, 37, 64, .1);
+    overflow: hidden;
+    background: rgba(255, 255, 255, .34);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+
+  .auth-head {
+    padding: 1rem 1.2rem;
+    color: #f8fbff;
+    background: linear-gradient(120deg, rgba(18, 75, 138, .82), rgba(46, 134, 222, .74));
+    position: relative;
+  }
+
+  .auth-head::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent);
+  }
+
+  .auth-head h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+  }
+
+  .auth-head p {
+    margin: .2rem 0 0;
+    font-size: .9rem;
+    opacity: .92;
+  }
+
+  .auth-body {
+    padding: 1.1rem 1.2rem 1.2rem;
+    background: rgba(255, 255, 255, .18);
+  }
+
+  .auth-form label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: .42rem;
+    color: #143257;
+  }
+
+  .auth-form input[type="text"],
+  .auth-form input[type="password"] {
+    width: 100%;
+    border: 1px solid #c7d6ea;
+    border-radius: .6rem;
+    padding: .58rem .74rem;
+    outline: none;
+  }
+
+  .auth-form input[type="text"]:focus,
+  .auth-form input[type="password"]:focus {
+    border-color: #2e86de;
+    box-shadow: 0 0 0 .2rem rgba(46, 134, 222, .15);
+  }
+
+  .auth-form ul.errorlist {
+    margin: .35rem 0 0;
+    padding-left: 1rem;
+    color: #b91c1c;
+    font-size: .9rem;
+  }
+
+  html[data-theme="dark"] .auth-card {
+    background: rgba(18, 30, 50, .78);
+    border-color: rgba(108, 146, 202, .45);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .45);
+  }
+
+  html[data-theme="dark"] .auth-head {
+    background: linear-gradient(120deg, rgba(24, 92, 171, .9), rgba(53, 139, 228, .78));
+  }
+
+  html[data-theme="dark"] .auth-body {
+    background: rgba(15, 24, 41, .62);
+  }
+
+  html[data-theme="dark"] .auth-form label {
+    color: #cfe1ff;
+  }
+
+  html[data-theme="dark"] .auth-form input[type="text"],
+  html[data-theme="dark"] .auth-form input[type="password"] {
+    background: rgba(9, 18, 33, .88);
+    color: #e7f1ff;
+    border-color: #416291;
+  }
+
+  html[data-theme="dark"] .auth-form input[type="text"]:focus,
+  html[data-theme="dark"] .auth-form input[type="password"]:focus {
+    border-color: #6ca3ea;
+    box-shadow: 0 0 0 .2rem rgba(73, 135, 218, .28);
+    background: rgba(12, 22, 39, .95);
+  }
+</style>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-head">
+      <h1>Вход в систему</h1>
+      <p>Журнал МПТ</p>
+    </div>
+    <div class="auth-body">
+      <form method="post" class="auth-form d-grid gap-3">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 mb-1">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div>
+          <label for="{{ form.username.id_for_label }}">Имя пользователя</label>
+          {{ form.username }}
+          {{ form.username.errors }}
+        </div>
+        <div>
+          <label for="{{ form.password.id_for_label }}">Пароль</label>
+          {{ form.password }}
+          {{ form.password.errors }}
+        </div>
+        <button class="btn btn-primary" type="submit">Войти</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

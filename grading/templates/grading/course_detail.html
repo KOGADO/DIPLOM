@@ -1,0 +1,85 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="page-title mb-1">{{ object.subject }} · {{ object.group }}</h1>
+    <div class="muted">Преподаватель: {{ object.teacher }} | Семестр: {{ object.semester }} | Средний по курсу: {% if course_avg %}{{ course_avg|floatformat:2 }}{% else %}нет данных{% endif %}</div>
+  </div>
+  {% if can_edit %}
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{% url 'group_students_import' object.group.id %}">Импорт студентов в группу</a>
+    <a class="btn btn-success" href="{% url 'course_journal' object.id %}">Журнал</a>
+    <a class="btn btn-outline-secondary" href="{% url 'lesson_add' object.id %}">Добавить занятие</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5">Студенты курса</h2>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Студент</th><th>Средняя</th><th>Посещаемость</th><th></th></tr></thead>
+          <tbody>
+            {% for s in students %}
+            <tr>
+              <td>{{ s }}</td>
+              <td>{% if s.avg_grade or s.avg_grade == 0 %}{{ s.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</td>
+              <td>{% if s.attendance_total %}{% widthratio s.attendance_present s.attendance_total 100 %}%{% else %}0%{% endif %}</td>
+              <td>
+                {% if can_view_student_profiles %}
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'student_detail' s.id %}">Профиль</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="muted">Список студентов пуст</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5">Занятия</h2>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Дата</th><th>Тема</th><th class="text-end">Действие</th></tr></thead>
+          <tbody>
+            {% for lesson in lessons %}
+            <tr>
+              <td>{{ lesson.date }}</td>
+              <td>{{ lesson.topic|default:'-' }}</td>
+              <td class="text-end">
+                {% if can_edit %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'attendance_mark' lesson.id %}">Посещаемость</a>{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="muted">Занятий пока нет</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel p-3 mt-3">
+  <h2 class="h5">Журнал оценок</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Дата</th><th>Студент</th><th>Оценка</th><th>Расшифровка</th></tr></thead>
+      <tbody>
+        {% for g in grades %}
+        <tr><td>{{ g.date }}</td><td>{{ g.student }}</td><td><strong>{{ g.value }}</strong></td><td>{{ g.get_value_display }}</td></tr>
+        {% empty %}
+        <tr><td colspan="4" class="muted">Оценок пока нет</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

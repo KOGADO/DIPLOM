@@ -1,0 +1,30 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Отчеты</h1>
+<div class="row g-3">
+  <div class="col-12 col-lg-4">
+    <a class="text-decoration-none" href="{% url 'report_group_statement' %}">
+      <div class="panel p-3 h-100">
+        <h2 class="h5 mb-2">Ведомость группы</h2>
+        <p class="muted mb-0">Средние и итоговые баллы по предмету и семестру.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-12 col-lg-4">
+    <a class="text-decoration-none" href="{% url 'report_top_students' %}">
+      <div class="panel p-3 h-100">
+        <h2 class="h5 mb-2">Топ/анти-топ</h2>
+        <p class="muted mb-0">Лидеры и отстающие по среднему баллу.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-12 col-lg-4">
+    <a class="text-decoration-none" href="{% url 'report_attendance' %}">
+      <div class="panel p-3 h-100">
+        <h2 class="h5 mb-2">Посещаемость</h2>
+        <p class="muted mb-0">Процент посещений по студентам и занятиям.</p>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Посещаемость</h1>
+<div class="panel p-3">
+  <p class="muted">Занятие: {{ lesson }}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Студент</th><th>Статус</th><th>Комментарий</th></tr></thead>
+        <tbody>
+          {% for row in student_rows %}
+          <tr>
+            <td>{{ row.student }}</td>
+            <td>
+              <select class="form-select" name="status_{{ row.student.id }}">
+                {% for value, label in statuses %}
+                <option value="{{ value }}" {% if row.current and row.current.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input class="form-control" name="comment_{{ row.student.id }}" value="{% if row.current %}{{ row.current.comment }}{% endif %}"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Сохранить посещаемость</button>
+      <a class="btn btn-outline-secondary" href="{% url 'course_detail' lesson.course.id %}">Назад к курсу</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

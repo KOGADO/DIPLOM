@@ -1,0 +1,40 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h1 class="h4">Профиль студента</h1>
+<p><strong>ФИО:</strong> {{ object.user.get_full_name|default:object.user.username }}</p>
+<p><strong>Группа:</strong> {{ object.group }}</p>
+
+<div class="panel p-3 mt-3">
+  <h2 class="h5 mb-3">Предметы студента</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Предмет</th>
+          <th>Преподаватель</th>
+          <th>Средний балл</th>
+          <th>Оценок</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for course in subjects %}
+        <tr>
+          <td>{{ course.subject.name }}</td>
+          <td>{{ course.teacher }}</td>
+          <td>{% if course.avg_grade %}{{ course.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</td>
+          <td>{{ course.grades_count }}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'student_course_journal' object.id course.id %}">
+              Журнал
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="muted">Для студента пока нет предметов.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

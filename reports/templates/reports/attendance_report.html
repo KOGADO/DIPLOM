@@ -1,0 +1,77 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Посещаемость</h1>
+
+<div class="panel p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label small muted">Группа</label>
+      <select class="form-select" name="group">
+        <option value="">Все</option>
+        {% for grp in groups %}
+        <option value="{{ grp.id }}" {% if selected.group == grp.id|stringformat:'s' %}selected{% endif %}>{{ grp.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small muted">Курс</label>
+      <select class="form-select" name="course">
+        <option value="">Все</option>
+        {% for c in courses %}
+        <option value="{{ c.id }}" {% if selected.course == c.id|stringformat:'s' %}selected{% endif %}>{{ c.subject }} · {{ c.group }} · {{ c.semester }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Применить</button>
+      <button class="btn btn-outline-success" type="submit" name="export" value="csv">CSV</button>
+      <a class="btn btn-outline-secondary" href="{% url 'report_attendance' %}">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5">По студентам</h2>
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Студент</th><th>Группа</th><th>Посещений</th><th>Всего</th><th>%</th></tr></thead>
+        <tbody>
+          {% for row in by_students %}
+          <tr>
+            <td>{{ row.student__user__last_name }} {{ row.student__user__first_name }}</td>
+            <td>{{ row.student__group__name }}</td>
+            <td>{{ row.present }}</td>
+            <td>{{ row.total }}</td>
+            <td>{% widthratio row.present row.total 100 %}%</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="muted">Нет данных</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5">По занятиям</h2>
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Дата</th><th>Предмет</th><th>Группа</th><th>Посещений</th><th>%</th></tr></thead>
+        <tbody>
+          {% for row in by_lessons %}
+          <tr>
+            <td>{{ row.lesson__date }}</td>
+            <td>{{ row.lesson__course__subject__name }}</td>
+            <td>{{ row.lesson__course__group__name }}</td>
+            <td>{{ row.present }}/{{ row.total }}</td>
+            <td>{% widthratio row.present row.total 100 %}%</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="muted">Нет данных</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
