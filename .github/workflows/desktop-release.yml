@@ -1,0 +1,45 @@
+name: Build Windows Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-windows-desktop:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build desktop app
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File scripts\build_desktop.ps1
+
+      - name: Pack desktop app
+        shell: pwsh
+        run: Compress-Archive -Path "dist\MPT Journal\*" -DestinationPath "MPT-Journal-Windows.zip" -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MPT-Journal-Windows
+          path: MPT-Journal-Windows.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MPT-Journal-Windows.zip

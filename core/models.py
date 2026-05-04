@@ -1,4 +1,6 @@
 ﻿from django.contrib.auth.models import User
+from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
@@ -72,3 +74,33 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class AdminLog(models.Model):
+    class Action(models.TextChoices):
+        CREATE = 'create', 'Создание'
+        UPDATE = 'update', 'Изменение'
+        DELETE = 'delete', 'Удаление'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='admin_logs',
+        verbose_name='Пользователь',
+    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name='Тип объекта')
+    object_id = models.CharField('ID объекта', max_length=64, db_index=True)
+    object_repr = models.CharField('Объект', max_length=255)
+    action = models.CharField('Действие', max_length=12, choices=Action.choices)
+    changed_fields = models.JSONField('Измененные поля', default=dict, blank=True)
+    created_at = models.DateTimeField('Дата и время', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Запись истории админки'
+        verbose_name_plural = 'История админки'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_action_display()}: {self.object_repr}'

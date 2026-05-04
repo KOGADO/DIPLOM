@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}История: {{ object }}{% endblock %}
+{% block content %}
+<div class="admin-panel">
+<nav class="small mb-2">
+  <a href="{% url 'admin_panel:index' %}">Админ-панель</a>
+  <span class="text-muted">/</span>
+  <a href="{% url 'admin_panel:list' config.key %}">{{ config.title }}</a>
+  <span class="text-muted">/ История</span>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">История изменений</h1>
+    <div class="text-muted small">{{ object }}</div>
+  </div>
+  {% if change_url %}<a class="btn btn-sm btn-outline-primary" href="{{ change_url }}">Изменить</a>{% endif %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Когда</th>
+          <th>Кто</th>
+          <th>Действие</th>
+          <th>Поля</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+          <td>{{ log.user|default:"-" }}</td>
+          <td>{{ log.get_action_display }}</td>
+          <td><code>{{ log.changed_fields }}</code></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">История пока пуста.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+{% endblock %}

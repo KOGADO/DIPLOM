@@ -149,6 +149,12 @@
       border-color: rgba(16, 138, 123, .3);
     }
 
+    .role-parent {
+      color: #3a275d;
+      background: #eadcff;
+      border-color: rgba(112, 74, 173, .3);
+    }
+
     .shell {
       padding: 1rem .25rem 1.5rem;
     }
@@ -193,6 +199,12 @@
     .banner-student {
       background:
         linear-gradient(120deg, rgba(12, 107, 96, .95), rgba(15, 151, 136, .88)),
+        linear-gradient(45deg, rgba(255,255,255,.08), rgba(255,255,255,0));
+    }
+
+    .banner-parent {
+      background:
+        linear-gradient(120deg, rgba(72, 48, 122, .95), rgba(122, 91, 190, .9)),
         linear-gradient(45deg, rgba(255,255,255,.08), rgba(255,255,255,0));
     }
 
@@ -261,6 +273,25 @@
       color: var(--text);
     }
 
+    html[data-theme="dark"] label,
+    html[data-theme="dark"] .form-label,
+    html[data-theme="dark"] .form-check-label {
+      color: #dce9ff;
+    }
+
+    html[data-theme="dark"] .helptext,
+    html[data-theme="dark"] .form-text,
+    html[data-theme="dark"] form .help,
+    html[data-theme="dark"] form small,
+    html[data-theme="dark"] form .small {
+      color: #9fb6d8 !important;
+    }
+
+    html[data-theme="dark"] .helptext ul,
+    html[data-theme="dark"] .helptext li {
+      color: #9fb6d8;
+    }
+
     .sidebar {
       position: sticky;
       top: 5.6rem;
@@ -321,6 +352,15 @@
     .nav-linkx.active .nav-ico {
       background: #d6e6ff;
       border-color: #b7cef0;
+    }
+
+    .nav-section-title {
+      margin: .75rem .78rem .35rem;
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
 
     html[data-theme="dark"] .nav-linkx {
@@ -659,8 +699,29 @@
 
     .ts-control {
       min-height: calc(1.5em + .75rem + 2px);
-      border-color: var(--border);
+      border: 1px solid #b7c5d8 !important;
       border-radius: .375rem;
+      background: var(--surface) !important;
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(16, 34, 58, .035);
+    }
+
+    .ts-wrapper.focus .ts-control,
+    .ts-control.focus {
+      border-color: var(--mpt-sky) !important;
+      box-shadow: 0 0 0 .2rem rgba(46, 134, 222, .18);
+    }
+
+    .ts-control input {
+      color: var(--text) !important;
+    }
+
+    .ts-wrapper.multi .ts-control .item {
+      border-radius: .35rem;
+      background: rgba(46, 134, 222, .14);
+      border: 1px solid rgba(46, 134, 222, .22);
+      color: var(--text);
+      padding: .18rem .45rem;
     }
 
     .ts-dropdown {
@@ -678,7 +739,7 @@
     html[data-theme="dark"] .ts-control,
     html[data-theme="dark"] .ts-dropdown {
       background: rgba(20, 32, 52, .92);
-      border-color: #35527d;
+      border-color: #5b789f !important;
       color: #dce9ff;
     }
 
@@ -708,6 +769,59 @@
     html[data-theme="dark"] .ts-control .item {
       color: #eef5ff;
     }
+
+    html[data-theme="dark"] .ts-wrapper.multi .ts-control .item {
+      background: rgba(79, 131, 211, .28);
+      border-color: rgba(142, 190, 255, .38);
+      color: #eef5ff;
+    }
+
+    .admin-panel .form-control,
+    .admin-panel .form-select,
+    .admin-panel .ts-control {
+      min-height: calc(1.5em + .5rem + 2px);
+      border: 1px solid var(--border) !important;
+      border-radius: .375rem;
+      background: var(--surface) !important;
+      color: var(--text) !important;
+      box-shadow: none;
+    }
+
+    .admin-panel .form-control:focus,
+    .admin-panel .form-select:focus,
+    .admin-panel .ts-control.focus,
+    .admin-panel .ts-wrapper.focus .ts-control {
+      border-color: var(--mpt-sky) !important;
+      box-shadow: 0 0 0 .2rem rgba(46, 134, 222, .18);
+    }
+
+    .admin-panel .ts-wrapper.form-select {
+      border: 0 !important;
+      background: transparent !important;
+      padding: 0;
+    }
+
+    .admin-panel .ts-control input {
+      color: var(--text) !important;
+    }
+
+    .admin-panel .form-check-input {
+      border: 1px solid #9aa9bd;
+      background-color: var(--surface);
+    }
+
+    .admin-panel .form-check-input:checked {
+      border-color: var(--mpt-sky);
+      background-color: #0d6efd;
+    }
+
+    html[data-theme="dark"] .admin-panel .form-control,
+    html[data-theme="dark"] .admin-panel .form-select,
+    html[data-theme="dark"] .admin-panel .ts-control {
+      background: rgba(20, 32, 52, .92) !important;
+      border-color: #5b789f !important;
+      color: #e6f0ff !important;
+    }
   </style>
 </head>
 <body>
@@ -726,6 +840,8 @@
       <span class="role-badge role-teacher">Преподаватель</span>
       {% elif is_student %}
       <span class="role-badge role-student">Студент</span>
+      {% elif is_parent %}
+      <span class="role-badge role-parent">Родитель</span>
       {% endif %}
       <span class="small opacity-75">{{ display_name }}</span>
       <form method="post" action="{% url 'logout' %}" class="m-0">
@@ -753,6 +869,11 @@
     <p class="mpt-banner-title">Личный кабинет студента</p>
     <p class="mpt-banner-subtitle">Предметы, оценки, посещаемость и персональный журнал</p>
   </section>
+  {% elif user.is_authenticated and is_parent %}
+  <section class="mpt-banner banner-parent">
+    <p class="mpt-banner-title">Кабинет родителя</p>
+    <p class="mpt-banner-subtitle">Успеваемость, посещаемость и журналы предметов ребенка</p>
+  </section>
   {% else %}
   <section class="mpt-banner banner-teacher">
     <p class="mpt-banner-title">Московский приборостроительный техникум</p>
@@ -771,7 +892,18 @@
               <span>Профиль студента</span>
             </a>
           {% endif %}
+          <a class="nav-linkx {% if '/chats/' in request.path %}active{% endif %}" href="{% url 'chat_list' %}">
+            <span class="nav-ico">ЧТ</span>
+            <span>Чаты</span>
+          </a>
+        {% elif is_parent_only %}
+          <div class="nav-section-title">Кабинет</div>
+          <a class="nav-linkx {% if '/parent-dashboard/' in request.path %}active{% endif %}" href="{% url 'parent_dashboard' %}">
+            <span class="nav-ico">РД</span>
+            <span>Кабинет родителя</span>
+          </a>
         {% else %}
+        <div class="nav-section-title">Работа</div>
         <a class="nav-linkx {% if request.path == '/' %}active{% endif %}" href="{% url 'dashboard' %}">
           <span class="nav-ico">ДШ</span>
           <span>Дашборд</span>
@@ -780,25 +912,21 @@
           <span class="nav-ico">КР</span>
           <span>Курсы</span>
         </a>
+        {% if is_student or is_teacher %}
+        <a class="nav-linkx {% if '/chats/' in request.path %}active{% endif %}" href="{% url 'chat_list' %}">
+          <span class="nav-ico">ЧТ</span>
+          <span>Чаты</span>
+        </a>
+        {% endif %}
           {% if is_admin %}
-          <a class="nav-linkx {% if '/groups/' in request.path %}active{% endif %}" href="{% url 'group_list' %}">
-            <span class="nav-ico">ГР</span>
-            <span>Группы</span>
-          </a>
-          <a class="nav-linkx {% if '/students/' in request.path %}active{% endif %}" href="{% url 'student_list' %}">
-            <span class="nav-ico">СТ</span>
-            <span>Студенты</span>
-          </a>
-          <a class="nav-linkx {% if '/teachers/' in request.path %}active{% endif %}" href="{% url 'teacher_list' %}">
-            <span class="nav-ico">ПР</span>
-            <span>Преподаватели</span>
-          </a>
-          <a class="nav-linkx {% if '/subjects/' in request.path %}active{% endif %}" href="{% url 'subject_list' %}">
-            <span class="nav-ico">ПД</span>
-            <span>Предметы</span>
+          <div class="nav-section-title">Администрирование</div>
+          <a class="nav-linkx {% if '/control/' in request.path %}active{% endif %}" href="{% url 'admin_panel:index' %}">
+            <span class="nav-ico">AD</span>
+            <span>Сущности и справочники</span>
           </a>
           {% endif %}
           {% if is_admin or is_teacher %}
+          <div class="nav-section-title">Аналитика</div>
           <a class="nav-linkx {% if '/reports' in request.path %}active{% endif %}" href="{% url 'reports_index' %}">
             <span class="nav-ico">ОТ</span>
             <span>Отчеты</span>
@@ -860,7 +988,6 @@
     const selects = document.querySelectorAll('select.form-select, select[id^="id_"]');
     selects.forEach(function (el) {
       if (el.dataset.searchInit === "1" || el.classList.contains("no-search")) return;
-      if (el.multiple) return;
       el.dataset.searchInit = "1";
 
       new TomSelect(el, {
@@ -868,16 +995,19 @@
         allowEmptyOption: true,
         maxOptions: 500,
         dropdownParent: 'body',
+        plugins: el.multiple ? ['remove_button'] : [],
+        hideSelected: true,
+        closeAfterSelect: !el.multiple,
         searchField: ['text'],
         sortField: [{ field: 'text', direction: 'asc' }],
         placeholder: el.getAttribute('placeholder') || 'Начните ввод для поиска...',
         onInitialize: function () {
-          if (this.getValue() === '') {
+          if (!el.multiple && this.getValue() === '') {
             this.clear(true);
           }
         },
         onFocus: function () {
-          if (this.getValue() === '') {
+          if (!el.multiple && this.getValue() === '') {
             this.clear(true);
           }
         },

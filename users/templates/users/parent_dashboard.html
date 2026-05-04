@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="page-title mb-1">Кабинет родителя</h1>
+    <div class="muted">{{ parent }}</div>
+  </div>
+</div>
+
+{% if not selected_student %}
+<div class="panel p-3 text-muted">К вашему профилю пока не привязан ни один студент.</div>
+{% else %}
+<form method="get" class="panel p-3 mb-3">
+  <label class="form-label small muted" for="student-select">Ребенок</label>
+  <div class="d-flex flex-wrap gap-2">
+    <select id="student-select" name="student" class="form-select" style="max-width: 420px;">
+      {% for child in children %}
+      <option value="{{ child.id }}" {% if child.id == selected_student.id %}selected{% endif %}>{{ child }} · {{ child.group }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary" type="submit">Показать</button>
+  </div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-md-4">
+    <div class="panel p-3 h-100">
+      <div class="muted text-uppercase" style="font-size:.72rem">Средний балл</div>
+      <div class="h3 m-0 fw-bold">{% if student_avg %}{{ student_avg|floatformat:2 }}{% else %}-{% endif %}</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="panel p-3 h-100">
+      <div class="muted text-uppercase" style="font-size:.72rem">Посещаемость</div>
+      <div class="h3 m-0 fw-bold">{{ attendance_percent }}%</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="panel p-3 h-100">
+      <div class="muted text-uppercase" style="font-size:.72rem">Оценок / отметок</div>
+      <div class="h3 m-0 fw-bold">{{ grades_count }} / {{ attendance_total }}</div>
+    </div>
+  </div>
+</div>
+
+{{ subject_rows|json_script:"parent-subject-rows" }}
+{{ attendance_rows|json_script:"parent-attendance-rows" }}
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5 mb-3">Успеваемость по предметам</h2>
+      <div style="position: relative; height: 320px;">
+        <canvas id="parentGradesChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-6">
+    <div class="panel p-3 h-100">
+      <h2 class="h5 mb-3">Посещаемость по предметам</h2>
+      <div style="position: relative; height: 320px;">
+        <canvas id="parentAttendanceChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel p-3">
+  <h2 class="h5 mb-3">Журналы по предметам</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Предмет</th>
+          <th>Преподаватель</th>
+          <th>Средний балл</th>
+          <th>Оценок</th>
+          <th>Посещаемость</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for course in courses %}
+        <tr>
+          <td>{{ course.subject.name }}</td>
+          <td>{{ course.teacher }}</td>
+          <td>{% if course.avg_grade %}{{ course.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</td>
+          <td>{{ course.grades_count }}</td>
+          <td>
+            {% if course.attendance_total %}
+              {% widthratio course.attendance_present course.attendance_total 100 %}%
+            {% else %}
+              нет данных
+            {% endif %}
+          </td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'student_course_journal' selected_student.id course.id %}">
+              Журнал
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="muted">Для студента пока нет предметов.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if selected_student %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    function parseJsonScript(id) {
+      var el = document.getElementById(id);
+      if (!el) return [];
+      try { return JSON.parse(el.textContent || '[]'); } catch (e) { return []; }
+    }
+    function theme(name, fallback) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+    function renderBar(canvasId, labels, values, label, maxValue, color) {
+      var canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      if (!labels.length) {
+        var ctx = canvas.getContext('2d');
+        ctx.font = '14px Manrope, sans-serif';
+        ctx.fillStyle = theme('--text', '#10223a');
+        ctx.fillText('Нет данных для отображения', 16, 28);
+        return;
+      }
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: label, data: values, backgroundColor: color, borderColor: color.replace('0.48', '0.95'), borderWidth: 1.2 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: theme('--text', '#10223a') } } },
+          scales: {
+            x: { ticks: { color: theme('--text', '#10223a') }, grid: { color: theme('--border', '#d9e3f2') } },
+            y: { beginAtZero: true, max: maxValue, ticks: { color: theme('--text', '#10223a') }, grid: { color: theme('--border', '#d9e3f2') } }
+          }
+        }
+      });
+    }
+
+    var grades = parseJsonScript('parent-subject-rows').filter(function(row){ return row.avg_grade !== null; });
+    var attendance = parseJsonScript('parent-attendance-rows');
+    renderBar(
+      'parentGradesChart',
+      grades.map(function(row){ return row.name; }),
+      grades.map(function(row){ return row.avg_grade; }),
+      'Средний балл',
+      5,
+      'rgba(242, 180, 66, 0.48)'
+    );
+    renderBar(
+      'parentAttendanceChart',
+      attendance.map(function(row){ return row.name; }),
+      attendance.map(function(row){ return row.percent; }),
+      'Посещаемость, %',
+      100,
+      'rgba(46, 134, 222, 0.48)'
+    );
+  })();
+</script>
+{% endif %}
+{% endblock %}

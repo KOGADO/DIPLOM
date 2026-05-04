@@ -19,41 +19,142 @@
   {% endfor %}
 </div>
 
-{{ admin_chart_data.students_by_group|json_script:"chart-students-by-group-data" }}
-{{ admin_chart_data.courses_by_semester|json_script:"chart-courses-by-semester-data" }}
-{{ admin_chart_data.avg_grade_by_subject|json_script:"chart-avg-grade-by-subject-data" }}
-{{ admin_chart_data.attendance_by_group|json_script:"chart-attendance-by-group-data" }}
+<div class="panel p-3 mb-3">
+  <h2 class="h5 mb-3">Посещаемость и успеваемость (детализация)</h2>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-12 col-md-3">
+      <label class="form-label small muted">Уровень вывода</label>
+      <select class="form-select" id="adminScopeSelect" name="admin_scope">
+        <option value="student" {% if admin_focus.scope == 'student' %}selected{% endif %}>Студент</option>
+        <option value="group" {% if admin_focus.scope == 'group' %}selected{% endif %}>Группа</option>
+        <option value="teacher" {% if admin_focus.scope == 'teacher' %}selected{% endif %}>Преподаватель</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-3" data-scope-target="student">
+      <label class="form-label small muted">Студент</label>
+      <select class="form-select" name="admin_student">
+        {% for s in admin_focus.students %}
+        <option value="{{ s.id }}" {% if admin_focus.selected_student_id == s.id %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-3" data-scope-target="group">
+      <label class="form-label small muted">Группа</label>
+      <select class="form-select" name="admin_group">
+        {% for g in admin_focus.groups %}
+        <option value="{{ g.id }}" {% if admin_focus.selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-3" data-scope-target="teacher">
+      <label class="form-label small muted">Преподаватель</label>
+      <select class="form-select" name="admin_teacher">
+        {% for t in admin_focus.teachers %}
+        <option value="{{ t.id }}" {% if admin_focus.selected_teacher_id == t.id %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Показать</button>
+      <button class="btn btn-outline-success" type="submit" name="focus_export" value="xlsx">Скачать Excel (по выбранному уровню)</button>
+      <a class="btn btn-outline-secondary" href="{% url 'dashboard' %}">Сбросить</a>
+    </div>
+  </form>
+
+  <div class="row g-2 mb-3">
+    <div class="col-12 col-lg-4">
+      <div class="panel p-2 h-100">
+        <div class="mb-1"><strong>{{ admin_focus.student.title }}</strong></div>
+        <div class="small muted">Посещаемость: <strong>{{ admin_focus.student.kpi.attendance_percent }}%</strong></div>
+        <div class="small muted">Средний балл:
+          <strong>{% if admin_focus.student.kpi.avg_grade %}{{ admin_focus.student.kpi.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</strong>
+        </div>
+        <div class="small muted">Отметок посещаемости: <strong>{{ admin_focus.student.kpi.total_attendance }}</strong></div>
+        <div class="small muted">Оценок: <strong>{{ admin_focus.student.kpi.grades_count }}</strong></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4">
+      <div class="panel p-2 h-100">
+        <div class="mb-1"><strong>{{ admin_focus.group.title }}</strong></div>
+        <div class="small muted">Посещаемость: <strong>{{ admin_focus.group.kpi.attendance_percent }}%</strong></div>
+        <div class="small muted">Средний балл:
+          <strong>{% if admin_focus.group.kpi.avg_grade %}{{ admin_focus.group.kpi.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</strong>
+        </div>
+        <div class="small muted">Отметок посещаемости: <strong>{{ admin_focus.group.kpi.total_attendance }}</strong></div>
+        <div class="small muted">Оценок: <strong>{{ admin_focus.group.kpi.grades_count }}</strong></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4">
+      <div class="panel p-2 h-100">
+        <div class="mb-1"><strong>{{ admin_focus.teacher.title }}</strong></div>
+        <div class="small muted">Посещаемость: <strong>{{ admin_focus.teacher.kpi.attendance_percent }}%</strong></div>
+        <div class="small muted">Средний балл:
+          <strong>{% if admin_focus.teacher.kpi.avg_grade %}{{ admin_focus.teacher.kpi.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</strong>
+        </div>
+        <div class="small muted">Отметок посещаемости: <strong>{{ admin_focus.teacher.kpi.total_attendance }}</strong></div>
+        <div class="small muted">Оценок: <strong>{{ admin_focus.teacher.kpi.grades_count }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-2"><strong>Детализация: {{ admin_focus.title }}</strong></div>
+  <h3 class="h6 mb-2">{{ admin_focus.row_title }}</h3>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Объект</th>
+          <th>Посещаемость, %</th>
+          <th>Отметок посещаемости</th>
+          <th>Оценок</th>
+          <th>Средний балл</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in admin_focus.rows %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.attendance_percent }}</td>
+          <td>{{ row.attendance_total }}</td>
+          <td>{{ row.grades_count }}</td>
+          <td>{% if row.avg_grade %}{{ row.avg_grade|floatformat:2 }}{% else %}нет данных{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="muted">{{ admin_focus.empty_message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ admin_focus.student.rows|json_script:"chart-focus-student-rows" }}
+{{ admin_focus.group.rows|json_script:"chart-focus-group-rows" }}
+{{ admin_focus.teacher.rows|json_script:"chart-focus-teacher-rows" }}
 
 <div class="row g-3 mb-3">
-  <div class="col-12 col-xl-6">
+  <div class="col-12 col-xl-4">
     <div class="panel p-3 h-100">
-      <h2 class="h5 mb-3">Студенты по группам (Топ 10)</h2>
+      <h2 class="h5 mb-3">График: {{ admin_focus.student.title }}</h2>
       <div style="position: relative; height: 320px;">
-        <canvas id="studentsByGroupChart"></canvas>
+        <canvas id="focusStudentChart"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-12 col-xl-6">
+  <div class="col-12 col-xl-4">
     <div class="panel p-3 h-100">
-      <h2 class="h5 mb-3">Курсы по семестрам</h2>
+      <h2 class="h5 mb-3">График: {{ admin_focus.group.title }}</h2>
       <div style="position: relative; height: 320px;">
-        <canvas id="coursesBySemesterChart"></canvas>
+        <canvas id="focusGroupChart"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-12 col-xl-6">
+  <div class="col-12 col-xl-4">
     <div class="panel p-3 h-100">
-      <h2 class="h5 mb-3">Средняя оценка по предметам (Топ 10)</h2>
+      <h2 class="h5 mb-3">График: {{ admin_focus.teacher.title }}</h2>
       <div style="position: relative; height: 320px;">
-        <canvas id="avgGradeBySubjectChart"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-12 col-xl-6">
-    <div class="panel p-3 h-100">
-      <h2 class="h5 mb-3">Посещаемость по группам (%)</h2>
-      <div style="position: relative; height: 320px;">
-        <canvas id="attendanceByGroupChart"></canvas>
+        <canvas id="focusTeacherChart"></canvas>
       </div>
     </div>
   </div>
@@ -62,7 +163,7 @@
 
 <div class="row g-3">
   {% if is_teacher %}
-  <div class="col-12 col-xl-6">
+  <div class="col-12">
     <div class="panel p-3 h-100">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="h5 m-0">Мои курсы</h2>
@@ -170,6 +271,28 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
   (function () {
+    function setupScopeSelector() {
+      var scopeSelect = document.getElementById('adminScopeSelect');
+      if (!scopeSelect) return;
+
+      function applyScopeVisibility() {
+        var currentScope = scopeSelect.value || 'student';
+        var blocks = document.querySelectorAll('[data-scope-target]');
+        blocks.forEach(function (block) {
+          var targetScope = block.getAttribute('data-scope-target');
+          var isActive = targetScope === currentScope;
+          block.style.display = isActive ? '' : 'none';
+          var select = block.querySelector('select');
+          if (select) {
+            select.disabled = !isActive;
+          }
+        });
+      }
+
+      scopeSelect.addEventListener('change', applyScopeVisibility);
+      applyScopeVisibility();
+    }
+
     function parseJsonScript(id) {
       var el = document.getElementById(id);
       if (!el) return {labels: [], values: []};
@@ -190,12 +313,16 @@
       return styles.getPropertyValue('--border').trim() || '#d9e3f2';
     }
 
-    function renderChart(canvasId, type, chartData, options) {
+    function renderFocusChart(canvasId, rows) {
       var canvas = document.getElementById(canvasId);
       if (!canvas) return;
-      var labels = chartData.labels || [];
-      var values = chartData.values || [];
-      if (!labels.length || !values.length) {
+      var labels = (rows || []).map(function(r){ return r.name; });
+      var attendance = (rows || []).map(function(r){ return Number(r.attendance_percent || 0); });
+      var grades = (rows || []).map(function(r){
+        return r.avg_grade === null || r.avg_grade === undefined ? null : Number(r.avg_grade);
+      });
+
+      if (!labels.length) {
         var ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.font = '14px Manrope, sans-serif';
@@ -203,111 +330,79 @@
         ctx.fillText('Нет данных для отображения', 16, 28);
         return;
       }
-
-      var defaults = {
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Посещаемость, %',
+              data: attendance,
+              backgroundColor: 'rgba(46, 134, 222, 0.45)',
+              borderColor: 'rgba(46, 134, 222, 0.9)',
+              borderWidth: 1.2,
+              yAxisID: 'yAttendance',
+            },
+            {
+              type: 'line',
+              label: 'Средний балл',
+              data: grades,
+              backgroundColor: 'rgba(242, 180, 66, 0.28)',
+              borderColor: 'rgba(242, 180, 66, 1)',
+              borderWidth: 2,
+              tension: 0.25,
+              yAxisID: 'yGrade',
+              spanGaps: true,
+            }
+          ]
+        },
+        options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
+            legend: {
+              display: true,
+              labels: { color: getThemeTextColor() }
+            },
           tooltip: { enabled: true }
         },
         scales: {
-          x: {
-            ticks: { color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
+            x: {
+              ticks: { color: getThemeTextColor() },
+              grid: { color: getThemeGridColor() }
+            },
+            yAttendance: {
+              position: 'left',
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                color: getThemeTextColor(),
+                callback: function(v){ return v + '%'; }
+              },
+              grid: { color: getThemeGridColor() }
+            },
+            yGrade: {
+              position: 'right',
+              beginAtZero: false,
+              min: 2,
+              max: 5,
+              ticks: { color: getThemeTextColor(), stepSize: 0.5 },
+              grid: { drawOnChartArea: false, color: getThemeGridColor() }
+            }
           }
         }
-      };
-
-      new Chart(canvas, {
-        type: type,
-        data: {
-          labels: labels,
-          datasets: [{
-            data: values,
-            backgroundColor: options.backgroundColor,
-            borderColor: options.borderColor,
-            borderWidth: 1.5,
-            tension: 0.3
-          }]
-        },
-        options: Object.assign(defaults, options.extra || {})
       });
     }
 
-    var studentsByGroup = parseJsonScript('chart-students-by-group-data');
-    var coursesBySemester = parseJsonScript('chart-courses-by-semester-data');
-    var avgGradeBySubject = parseJsonScript('chart-avg-grade-by-subject-data');
-    var attendanceByGroup = parseJsonScript('chart-attendance-by-group-data');
+    var studentRows = parseJsonScript('chart-focus-student-rows');
+    var groupRows = parseJsonScript('chart-focus-group-rows');
+    var teacherRows = parseJsonScript('chart-focus-teacher-rows');
 
-    renderChart('studentsByGroupChart', 'bar', studentsByGroup, {
-      backgroundColor: 'rgba(46, 134, 222, 0.45)',
-      borderColor: 'rgba(46, 134, 222, 0.9)'
-    });
-
-    renderChart('coursesBySemesterChart', 'doughnut', coursesBySemester, {
-      backgroundColor: [
-        'rgba(46, 134, 222, 0.75)',
-        'rgba(18, 75, 138, 0.75)',
-        'rgba(242, 180, 66, 0.75)',
-        'rgba(15, 151, 136, 0.75)',
-        'rgba(138, 104, 255, 0.72)'
-      ],
-      borderColor: 'rgba(255,255,255,0.25)',
-      extra: {
-        scales: undefined,
-        plugins: {
-          legend: {
-            display: true,
-            labels: { color: getThemeTextColor() }
-          }
-        }
-      }
-    });
-
-    renderChart('avgGradeBySubjectChart', 'line', avgGradeBySubject, {
-      backgroundColor: 'rgba(242, 180, 66, 0.3)',
-      borderColor: 'rgba(242, 180, 66, 1)',
-      extra: {
-        scales: {
-          y: {
-            beginAtZero: false,
-            min: 2,
-            max: 5,
-            ticks: { stepSize: 0.5, color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
-          },
-          x: {
-            ticks: { color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
-          }
-        }
-      }
-    });
-
-    renderChart('attendanceByGroupChart', 'bar', attendanceByGroup, {
-      backgroundColor: 'rgba(15, 151, 136, 0.42)',
-      borderColor: 'rgba(15, 151, 136, 1)',
-      extra: {
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: 100,
-            ticks: { callback: function(v){ return v + '%'; }, color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
-          },
-          x: {
-            ticks: { color: getThemeTextColor() },
-            grid: { color: getThemeGridColor() }
-          }
-        }
-      }
-    });
+    setupScopeSelector();
+    renderFocusChart('focusStudentChart', studentRows);
+    renderFocusChart('focusGroupChart', groupRows);
+    renderFocusChart('focusTeacherChart', teacherRows);
   })();
 </script>
 {% endif %}

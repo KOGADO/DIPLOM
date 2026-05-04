@@ -1,6 +1,8 @@
 ﻿from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+import csv
+from io import TextIOWrapper
 from django.db import transaction
 from django.db.models import Avg, Count, Q, Value
 from django.db.models.functions import Concat
@@ -11,10 +13,11 @@ from django.urls import reverse, reverse_lazy
 from django.utils.dateparse import parse_date
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 import re
+from openpyxl import load_workbook
 
 from core.permissions import AdminRequiredMixin
 from grading.forms import LessonForm
-from grading.models import Attendance, Course, Grade, Lesson
+from grading.models import Attendance, Course, Grade, LectureTopic, Lesson
 from users.models import Student
 
 CourseForm = modelform_factory(Course, fields=['subject', 'teacher', 'group', 'semester', 'year'])
@@ -54,6 +57,76 @@ def _teacher_filter_choices(courses_qs):
         for item in _split_teacher_name(combined):
             names.add(item)
     return sorted(names)
+
+
+def _normalize_topic(value):
+    return ' '.join(str(value or '').replace('\ufeff', '').split()).strip()
+
+
+def _looks_like_topic_header(value):
+    return value.casefold() in {'тема', 'темы', 'тема лекции', 'topic', 'topics', 'lecture topic'}
+
+
+def _topics_from_xlsx(file_obj):
+    workbook = load_workbook(file_obj, read_only=True, data_only=True)
+    sheet = workbook.active
+    topics = []
+    for row in sheet.iter_rows(values_only=True):
+        for cell in row:
+            topic = _normalize_topic(cell)
+            if topic:
+                topics.append(topic)
+                break
+    return topics
+
+
+def _topics_from_csv(file_obj):
+    try:
+        wrapper = TextIOWrapper(file_obj, encoding='utf-8-sig', newline='')
+        rows = list(csv.reader(wrapper))
+    except UnicodeDecodeError:
+        file_obj.seek(0)
+        wrapper = TextIOWrapper(file_obj, encoding='cp1251', newline='')
+        rows = list(csv.reader(wrapper))
+
+    topics = []
+    for row in rows:
+        for cell in row:
+            topic = _normalize_topic(cell)
+            if topic:
+                topics.append(topic)
+                break
+    return topics
+
+
+def _import_lecture_topics(course, uploaded_file):
+    filename = uploaded_file.name.lower()
+    uploaded_file.seek(0)
+    if filename.endswith('.xlsx'):
+        topics = _topics_from_xlsx(uploaded_file)
+    elif filename.endswith('.csv'):
+        topics = _topics_from_csv(uploaded_file)
+    else:
+        raise ValueError('Поддерживаются только файлы .xlsx и .csv')
+
+    existing = {item.casefold() for item in course.lecture_topics.values_list('title', flat=True)}
+    max_order = course.lecture_topics.order_by('-order').values_list('order', flat=True).first() or 0
+    created = 0
+    skipped = 0
+    seen = set()
+    for topic in topics:
+        if _looks_like_topic_header(topic):
+            skipped += 1
+            continue
+        key = topic.casefold()
+        if key in existing or key in seen:
+            skipped += 1
+            continue
+        max_order += 1
+        LectureTopic.objects.create(course=course, title=topic[:255], order=max_order)
+        seen.add(key)
+        created += 1
+    return created, skipped
 
 
 class CourseListView(LoginRequiredMixin, ListView):
@@ -250,6 +323,23 @@ def course_journal_view(request, pk):
                 messages.success(request, f'Занятие на {lesson_date} сохранено')
             return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
 
+        if action == 'import_topics':
+            uploaded_file = request.FILES.get('topics_file')
+            if not uploaded_file:
+                messages.error(request, 'Выберите Excel или CSV файл с темами.')
+                return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
+            try:
+                created, skipped = _import_lecture_topics(course, uploaded_file)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
+            except Exception:
+                messages.error(request, 'Не удалось прочитать файл. Проверьте формат и содержимое.')
+                return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
+
+            messages.success(request, f'Темы импортированы: добавлено {created}, пропущено {skipped}.')
+            return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
+
         if action == 'update_topic':
             lesson_id_raw = request.POST.get('lesson_id', '').strip()
             topic = request.POST.get('topic', '').strip()
@@ -282,6 +372,8 @@ def course_journal_view(request, pk):
                         mark = request.POST.get(f'mark_{student.id}_{lesson.id}', '').strip().upper()
                         if len(mark) > 1:
                             mark = mark[0]
+                        if mark in {'О', 'L'}:
+                            mark = ''
 
                         grade_qs = Grade.objects.filter(
                             student=student,
@@ -289,8 +381,6 @@ def course_journal_view(request, pk):
                             grade_type=grade_type,
                             date=lesson.date,
                         ).order_by('id')
-                        attendance_qs = Attendance.objects.filter(student=student, lesson=lesson)
-
                         if mark in {'2', '3', '4', '5'}:
                             value = int(mark)
                             grade = grade_qs.first()
@@ -327,17 +417,7 @@ def course_journal_view(request, pk):
                             updated_count += 1
                             continue
 
-                        if mark in {'О', 'L'}:
-                            grade_qs.delete()
-                            Attendance.objects.update_or_create(
-                                student=student,
-                                lesson=lesson,
-                                defaults={'status': Attendance.Status.LATE, 'comment': ''},
-                            )
-                            updated_count += 1
-                            continue
-
-                        if mark in {'П', 'P'}:
+                        if mark == '':
                             grade_qs.delete()
                             Attendance.objects.update_or_create(
                                 student=student,
@@ -345,11 +425,6 @@ def course_journal_view(request, pk):
                                 defaults={'status': Attendance.Status.PRESENT, 'comment': ''},
                             )
                             updated_count += 1
-                            continue
-
-                        if mark == '':
-                            grade_qs.delete()
-                            attendance_qs.delete()
 
             messages.success(request, f'Журнал сохранен. Обновлено ячеек: {updated_count}')
             return redirect(reverse('course_journal', kwargs={'pk': course.pk}))
@@ -381,10 +456,6 @@ def course_journal_view(request, pk):
                 status = attendance_map.get((student.id, lesson.id))
                 if status == Attendance.Status.ABSENT:
                     mark = 'Н'
-                elif status == Attendance.Status.LATE:
-                    mark = 'О'
-                elif status == Attendance.Status.PRESENT:
-                    mark = 'П'
 
             cells.append({'lesson': lesson, 'mark': mark, 'row_idx': row_idx, 'col_idx': col_idx})
 
@@ -398,6 +469,7 @@ def course_journal_view(request, pk):
             'can_edit': can_edit,
             'rows': rows,
             'lessons': lessons,
+            'lecture_topics': course.lecture_topics.all(),
         },
     )
 

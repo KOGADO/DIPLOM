@@ -1,0 +1,17 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.log
+.pytest_cache
+build
+dist
+database_backups
+*.sqlite3
+*.backup
+*.archived
+data_backup_*.json
+MPT Journal.spec
+schema.yml
+locustfile.py

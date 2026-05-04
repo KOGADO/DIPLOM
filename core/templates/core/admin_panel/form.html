@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_add %}Добавить{% else %}Изменить{% endif %}: {{ config.title }}{% endblock %}
+{% block content %}
+<div class="admin-panel">
+<nav class="small mb-2">
+  <a href="{% url 'admin_panel:index' %}">Админ-панель</a>
+  <span class="text-muted">/</span>
+  <a href="{% url 'admin_panel:list' config.key %}">{{ config.title }}</a>
+  <span class="text-muted">/ {% if is_add %}Добавить{% else %}{{ object }}{% endif %}</span>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <h1 class="h4 mb-0">{% if is_add %}Добавить запись{% else %}Изменить запись{% endif %}</h1>
+  {% if history_url %}<a class="btn btn-sm btn-outline-secondary" href="{{ history_url }}">История изменений</a>{% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          {% for field in form %}
+          <div class="mb-3">
+            {% if field.field.widget.input_type == 'checkbox' %}
+            <div class="form-check">
+              {{ field }}
+              <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            </div>
+            {% else %}
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% endif %}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          </div>
+          {% endfor %}
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-success" type="submit" name="_save">Сохранить</button>
+            <button class="btn btn-outline-success" type="submit" name="_continue">Сохранить и продолжить</button>
+            <button class="btn btn-outline-primary" type="submit" name="_addanother">Сохранить и добавить ещё</button>
+            <a class="btn btn-secondary" href="{{ cancel_url }}">Отмена</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% if relation_blocks %}
+  <div class="col-12 col-xl-4">
+    <div class="card">
+      <div class="card-header">Связанные записи</div>
+      <div class="card-body">
+        {% for block in relation_blocks %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between gap-2">
+            <strong>{{ block.title }}</strong>
+            <a href="{{ block.list_url }}">{{ block.count }}</a>
+          </div>
+          <div class="small mt-1">
+            {% for row in block.rows %}
+            <div><a href="{{ row.url }}">{{ row.text }}</a></div>
+            {% empty %}
+            <div class="text-muted">Нет связанных записей.</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+</div>
+{% endblock %}

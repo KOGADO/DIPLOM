@@ -9,6 +9,7 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = ['id', 'subject', 'value', 'date', 'comment']
+        ref_name = 'MyGrade'
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -18,3 +19,4 @@ class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = ['id', 'subject', 'group', 'semester', 'year']
+        ref_name = 'MyCourse'

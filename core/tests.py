@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from core.migration_utils import add_column_if_missing
 from core.models import Department, Group as StudyGroup, Subject
+from core.models import AdminLog
 from users.models import Student, Teacher
 
 
@@ -123,7 +124,8 @@ class MigrationUtilsTests(TestCase):
         created_again = add_column_if_missing(schema_editor, table_name, 'department_id', 'INTEGER')
 
         with connection.cursor() as cursor:
-            columns = [row[1] for row in cursor.execute(f'PRAGMA table_info({table_name})').fetchall()]
+            description = connection.introspection.get_table_description(cursor, table_name)
+            columns = [column.name for column in description]
             cursor.execute(f'DROP TABLE IF EXISTS {table_name}')
 
         self.assertTrue(created)
@@ -176,3 +178,77 @@ class GroupSearchTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'БД-1-23')
         self.assertNotContains(response, 'П-1-23')
+
+
+class AdminPanelTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('control_admin', 'admin@example.com', 'pass12345')
+        self.client.login(username='control_admin', password='pass12345')
+
+    def test_index_lists_registered_entities(self):
+        response = self.client.get(reverse('admin_panel:index'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'core.group')
+        self.assertContains(response, 'grading.grade')
+
+    def test_create_update_and_history_log_changes(self):
+        create_response = self.client.post(
+            reverse('admin_panel:add', kwargs={'model_key': 'core.subject'}),
+            {'name': 'Админ-тест', 'source': 'manual', 'external_id': '', 'is_active': 'on', '_save': '1'},
+        )
+        self.assertEqual(create_response.status_code, 302)
+        subject = Subject.objects.get(name='Админ-тест')
+
+        update_response = self.client.post(
+            reverse('admin_panel:change', kwargs={'model_key': 'core.subject', 'pk': subject.pk}),
+            {'name': 'Админ-тест 2', 'source': 'manual', 'external_id': '', 'is_active': 'on', '_save': '1'},
+        )
+        self.assertEqual(update_response.status_code, 302)
+        subject.refresh_from_db()
+        self.assertEqual(subject.name, 'Админ-тест 2')
+        self.assertEqual(AdminLog.objects.filter(object_id=str(subject.pk)).count(), 2)
+
+        history_response = self.client.get(reverse('admin_panel:history', kwargs={'model_key': 'core.subject', 'pk': subject.pk}))
+        self.assertEqual(history_response.status_code, 200)
+        self.assertContains(history_response, 'История изменений')
+
+    def test_bulk_delete(self):
+        first = Subject.objects.create(name='Bulk A')
+        second = Subject.objects.create(name='Bulk B')
+        response = self.client.post(
+            reverse('admin_panel:list', kwargs={'model_key': 'core.subject'}),
+            {'action': 'bulk_delete', 'selected': [str(first.pk), str(second.pk)]},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Subject.objects.filter(pk__in=[first.pk, second.pk]).exists())
+        self.assertEqual(AdminLog.objects.filter(action=AdminLog.Action.DELETE).count(), 2)
+
+    def test_can_set_user_password(self):
+        user = User.objects.create_user('password_target', password='oldpass123')
+        response = self.client.post(
+            reverse('admin_panel:change', kwargs={'model_key': 'auth.user', 'pk': user.pk}),
+            {
+                'username': 'password_target',
+                'first_name': '',
+                'last_name': '',
+                'email': '',
+                'is_active': 'on',
+                'password1': 'newpass123',
+                'password2': 'newpass123',
+                '_save': '1',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('newpass123'))
+        self.assertFalse(user.check_password('oldpass123'))
+
+    def test_student_cannot_open_control_panel(self):
+        self.client.logout()
+        student_user = User.objects.create_user('control_student', password='pass12345')
+        student_group, _ = Group.objects.get_or_create(name='Student')
+        student_user.groups.add(student_group)
+        self.client.login(username='control_student', password='pass12345')
+        response = self.client.get(reverse('admin_panel:index'))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'core.group')

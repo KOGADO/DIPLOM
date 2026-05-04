@@ -12,6 +12,19 @@
   <a class="btn btn-outline-secondary" href="{% url 'student_detail' student.id %}">Назад к профилю</a>
 </div>
 
+{% if highlighted_grade %}
+<div class="panel p-3 mb-3 linked-grade-summary">
+  <div class="small muted text-uppercase">Оценка из вопроса студента</div>
+  <div>
+    <strong>{{ highlighted_grade.value }}</strong>
+    · {{ highlighted_grade.date|date:"d.m.Y" }}
+    {% if highlighted_lesson and highlighted_lesson.topic %}· {{ highlighted_lesson.topic }}{% endif %}
+    {% if highlighted_grade.comment %}· {{ highlighted_grade.comment }}{% endif %}
+  </div>
+  <div class="small muted">Строка ниже подсвечена в журнале.</div>
+</div>
+{% endif %}
+
 <div class="panel p-3">
   <div class="table-responsive">
     <table class="table table-sm align-middle">
@@ -25,10 +38,22 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr>
+        <tr {% if row.grade %}id="grade-{{ row.grade.id }}" class="grade-row {% if row.grade.id == highlighted_grade_id %}grade-row-linked{% endif %}"{% endif %}>
           <td>{{ row.lesson.date }}</td>
           <td>{{ row.lesson.topic|default:'-' }}</td>
-          <td>{% if row.grade %}{{ row.grade }}{% else %}-{% endif %}</td>
+          <td>
+            {% if row.grade %}
+              <strong>{{ row.grade.value }}</strong>
+              {% if row.grade.id == highlighted_grade_id %}
+              <span class="badge text-bg-warning ms-2">Вопрос студента</span>
+              {% endif %}
+              {% if request.user == student.user %}
+              <a class="btn btn-sm btn-outline-primary ms-2" href="{% url 'chat_new' %}?grade={{ row.grade.id }}">Задать вопрос</a>
+              {% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
           <td>{{ row.attendance }}</td>
         </tr>
         {% empty %}
@@ -38,4 +63,22 @@
     </table>
   </div>
 </div>
+<style>
+  .linked-grade-summary {
+    border-left: 4px solid var(--mpt-gold);
+  }
+  .grade-row {
+    scroll-margin-top: 6rem;
+  }
+  .grade-row:target > td,
+  .grade-row-linked > td {
+    --bs-table-bg: rgba(242, 180, 66, .22);
+    background: rgba(242, 180, 66, .22) !important;
+    box-shadow: inset 0 0 0 9999px rgba(242, 180, 66, .1);
+  }
+  .grade-row:target td:first-child,
+  .grade-row-linked td:first-child {
+    border-left: 4px solid var(--mpt-gold);
+  }
+</style>
 {% endblock %}

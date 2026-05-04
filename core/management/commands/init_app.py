@@ -12,7 +12,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE('Running migrations...'))
         call_command('migrate', interactive=False)
 
-        for role_name in ('Teachers', 'Students', 'Admins'):
+        for role_name in ('Admin', 'Teacher', 'Student', 'Parent'):
             _, created = Group.objects.get_or_create(name=role_name)
             action = 'created' if created else 'exists'
             self.stdout.write(self.style.SUCCESS(f'Role group {role_name}: {action}'))

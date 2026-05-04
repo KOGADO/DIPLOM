@@ -73,6 +73,24 @@ class Lesson(models.Model):
         return f'{self.course} - {self.date}'
 
 
+class LectureTopic(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lecture_topics', verbose_name='Курс')
+    title = models.CharField('Тема лекции', max_length=255)
+    order = models.PositiveIntegerField('Порядок', default=0)
+    created_at = models.DateTimeField('Создана', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Тема лекции'
+        verbose_name_plural = 'Темы лекций'
+        ordering = ['order', 'title']
+        constraints = [
+            models.UniqueConstraint(fields=['course', 'title'], name='uniq_lecture_topic_course_title'),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
 class Attendance(models.Model):
     class Status(models.TextChoices):
         PRESENT = 'PRESENT', 'Присутствовал'

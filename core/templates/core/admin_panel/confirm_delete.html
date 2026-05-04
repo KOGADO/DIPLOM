@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Удаление{% endblock %}
+{% block content %}
+<div class="admin-panel">
+<nav class="small mb-2">
+  <a href="{% url 'admin_panel:index' %}">Админ-панель</a>
+  <span class="text-muted">/</span>
+  <a href="{% url 'admin_panel:list' config.key %}">{{ config.title }}</a>
+  <span class="text-muted">/ Удаление</span>
+</nav>
+
+<div class="card">
+  <div class="card-header">Подтверждение удаления</div>
+  <div class="card-body">
+    <p>Удалить запись <strong>{{ object }}</strong>?</p>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <button class="btn btn-danger" type="submit">Удалить</button>
+      <a class="btn btn-secondary" href="{{ cancel_url }}">Отмена</a>
+    </form>
+  </div>
+</div>
+</div>
+{% endblock %}

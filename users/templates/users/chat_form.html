@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<nav class="small mb-2">
+  <a href="{% url 'chat_list' %}">Чаты</a>
+  <span class="text-muted">/ Новый диалог</span>
+</nav>
+
+<h1 class="page-title">Новый диалог</h1>
+
+{% if grade_context %}
+<div class="panel p-3 mb-3">
+  <div class="small muted text-uppercase">Вопрос по оценке</div>
+  <div><strong>{{ grade_context.subject }}</strong> · {{ grade_context.type }} <strong>{{ grade_context.value }}</strong></div>
+  <div class="small muted">
+    {{ grade_context.date|date:"d.m.Y" }}{% if grade_context.topic %} · {{ grade_context.topic }}{% endif %}
+  </div>
+  <a class="small" href="{{ grade_context.url }}">Открыть журнал</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if grade %}<input type="hidden" name="grade" value="{{ grade.id }}">{% endif %}
+      <div class="d-flex gap-2">
+        <button class="btn btn-success" type="submit">Создать и отправить</button>
+        <a class="btn btn-secondary" href="{% url 'chat_list' %}">Отмена</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

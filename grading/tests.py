@@ -1,13 +1,17 @@
 ﻿from datetime import date
 
+from io import BytesIO
+
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Avg
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import Workbook
 
 from core.models import Group as StudyGroup, Subject
-from grading.models import Course, Grade
+from grading.models import Attendance, Course, Grade, LectureTopic, Lesson
 from users.models import Student, Teacher
 
 
@@ -90,3 +94,125 @@ class CourseTeacherFilterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'value="М.А. Злобина"', count=1)
         self.assertNotContains(response, 'value="М.А. Злобина Г.Н.Киселев"')
+
+
+class LectureTopicImportTests(TestCase):
+    def setUp(self):
+        teacher_group, _ = Group.objects.get_or_create(name='Teacher')
+        self.teacher_user = User.objects.create_user(username='topic_teacher', password='pass12345')
+        self.teacher_user.groups.add(teacher_group)
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        group = StudyGroup.objects.create(name='ТЕМ-1')
+        subject = Subject.objects.create(name='Темы лекций')
+        self.course = Course.objects.create(
+            subject=subject,
+            teacher=self.teacher,
+            group=group,
+            semester='2025/2026-2',
+            year=2026,
+        )
+        student_user = User.objects.create_user(username='topic_student', password='pass12345')
+        Student.objects.create(user=student_user, group=group)
+
+    def test_teacher_imports_topics_from_csv(self):
+        self.client.login(username='topic_teacher', password='pass12345')
+        uploaded = SimpleUploadedFile(
+            'topics.csv',
+            'Тема\nВведение в Python\nООП в Python\nВведение в Python\n'.encode('utf-8-sig'),
+            content_type='text/csv',
+        )
+        response = self.client.post(
+            reverse('course_journal', kwargs={'pk': self.course.pk}),
+            {'action': 'import_topics', 'topics_file': uploaded},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Введение в Python')
+        self.assertContains(response, 'ООП в Python')
+        self.assertEqual(LectureTopic.objects.filter(course=self.course).count(), 2)
+
+    def test_teacher_imports_topics_from_xlsx(self):
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(['Тема'])
+        worksheet.append(['Архитектура приложения'])
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        self.client.login(username='topic_teacher', password='pass12345')
+        uploaded = SimpleUploadedFile(
+            'topics.xlsx',
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response = self.client.post(
+            reverse('course_journal', kwargs={'pk': self.course.pk}),
+            {'action': 'import_topics', 'topics_file': uploaded},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(LectureTopic.objects.filter(course=self.course, title='Архитектура приложения').exists())
+
+
+class CourseJournalAttendanceTests(TestCase):
+    def setUp(self):
+        teacher_group, _ = Group.objects.get_or_create(name='Teacher')
+        self.teacher_user = User.objects.create_user(username='journal_teacher', password='pass12345')
+        self.teacher_user.groups.add(teacher_group)
+        self.teacher = Teacher.objects.create(user=self.teacher_user)
+
+        self.group = StudyGroup.objects.create(name='ЖУР-1')
+        self.subject = Subject.objects.create(name='Журнал посещаемости')
+        self.course = Course.objects.create(
+            subject=self.subject,
+            teacher=self.teacher,
+            group=self.group,
+            semester='2025/2026-2',
+            year=2026,
+        )
+        student_user = User.objects.create_user(username='journal_student', password='pass12345')
+        self.student = Student.objects.create(user=student_user, group=self.group)
+        self.lesson = Lesson.objects.create(course=self.course, date=date(2026, 4, 29))
+
+    def test_late_mark_is_not_shown_or_preserved_from_journal(self):
+        Attendance.objects.create(
+            student=self.student,
+            lesson=self.lesson,
+            status=Attendance.Status.LATE,
+        )
+
+        self.client.login(username='journal_teacher', password='pass12345')
+        response = self.client.get(reverse('course_journal', kwargs={'pk': self.course.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'value="О"')
+
+        response = self.client.post(
+            reverse('course_journal', kwargs={'pk': self.course.pk}),
+            {
+                'action': 'save_grid',
+                f'mark_{self.student.id}_{self.lesson.id}': 'О',
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        attendance = Attendance.objects.get(student=self.student, lesson=self.lesson)
+        self.assertEqual(attendance.status, Attendance.Status.PRESENT)
+
+    def test_blank_journal_mark_saves_present_without_visible_mark(self):
+        self.client.login(username='journal_teacher', password='pass12345')
+        response = self.client.post(
+            reverse('course_journal', kwargs={'pk': self.course.pk}),
+            {
+                'action': 'save_grid',
+                f'mark_{self.student.id}_{self.lesson.id}': '',
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        attendance = Attendance.objects.get(student=self.student, lesson=self.lesson)
+        self.assertEqual(attendance.status, Attendance.Status.PRESENT)
+
+        response = self.client.get(reverse('course_journal', kwargs={'pk': self.course.pk}))
+        self.assertNotContains(response, 'value="П"')

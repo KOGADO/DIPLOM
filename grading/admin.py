@@ -1,6 +1,6 @@
 ﻿from django.contrib import admin
 
-from grading.models import Attendance, Course, Grade, Lesson, StudentCourse
+from grading.models import Attendance, Course, Grade, LectureTopic, Lesson, StudentCourse
 
 
 @admin.register(Course)
@@ -20,6 +20,13 @@ class StudentCourseAdmin(admin.ModelAdmin):
 class LessonAdmin(admin.ModelAdmin):
     list_display = ('id', 'course', 'date', 'topic')
     list_filter = ('course', 'date')
+
+
+@admin.register(LectureTopic)
+class LectureTopicAdmin(admin.ModelAdmin):
+    list_display = ('id', 'course', 'order', 'title')
+    list_filter = ('course',)
+    search_fields = ('title', 'course__subject__name', 'course__group__name')
 
 
 @admin.register(Attendance)

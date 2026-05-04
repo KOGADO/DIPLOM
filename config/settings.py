@@ -1,7 +1,14 @@
 ﻿import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+IS_FROZEN = getattr(sys, 'frozen', False)
+FROZEN_BASE_DIR = Path(getattr(sys, '_MEIPASS', BASE_DIR))
+RUNTIME_DIR = Path(os.getenv('MPT_RUNTIME_DIR', Path(os.getenv('LOCALAPPDATA', BASE_DIR)) / 'MPT Journal'))
+if IS_FROZEN:
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+PROJECT_DIR = FROZEN_BASE_DIR if IS_FROZEN else BASE_DIR
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-me')
 DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
@@ -15,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',
     'core',
     'users',
     'grading',
@@ -37,7 +45,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [PROJECT_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -53,13 +61,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-if os.getenv('DB_ENGINE', 'sqlite').lower() == 'postgres':
+if os.getenv('DB_ENGINE', 'postgres').lower() == 'postgres':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('POSTGRES_DB', 'performance_db'),
             'USER': os.getenv('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', '1'),
             'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
             'PORT': os.getenv('POSTGRES_PORT', '5432'),
         }
@@ -68,7 +76,7 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': (RUNTIME_DIR if IS_FROZEN else BASE_DIR) / 'db.sqlite3',
         }
     }
 
@@ -85,7 +93,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = (RUNTIME_DIR if IS_FROZEN else BASE_DIR) / 'staticfiles'
+MEDIA_URL = 'media/'
+MEDIA_ROOT = (RUNTIME_DIR if IS_FROZEN else BASE_DIR) / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
@@ -96,8 +106,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': int(os.getenv('API_PAGE_SIZE', '25')),
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Журнал МПТ API',
+    'DESCRIPTION': 'API для учебного журнала, пользователей, курсов, оценок, посещаемости и чатов.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 MPT_SYNC_BASE_URL = os.getenv('MPT_SYNC_BASE_URL', 'https://mpt.ru')

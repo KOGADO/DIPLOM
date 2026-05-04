@@ -22,13 +22,29 @@
       </div>
       <div class="flex-grow-1" style="min-width:220px">
         <label class="form-label mb-1">Тема (опционально)</label>
-        <input class="form-control" type="text" name="topic" placeholder="Тема занятия">
+        <input class="form-control topic-text-input" type="text" name="topic" placeholder="Введите или выберите тему" list="lectureTopicOptions">
       </div>
       <button class="btn btn-primary" type="submit">Добавить дату</button>
     </form>
+    <form method="post" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-end">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="import_topics">
+      <div>
+        <label class="form-label mb-1">Темы из Excel/CSV</label>
+        <input class="form-control" type="file" name="topics_file" accept=".xlsx,.csv" required>
+      </div>
+      <button class="btn btn-outline-primary" type="submit">Загрузить темы</button>
+    </form>
     {% endif %}
   </div>
-  <div class="small muted mt-2">Обозначения: <strong>2-5</strong> — оценка, <strong>Н</strong> — отсутствовал, <strong>П</strong> — присутствовал, <strong>О</strong> — опоздал, пусто — очистить ячейку.</div>
+  {% if lecture_topics %}
+  <datalist id="lectureTopicOptions">
+    {% for topic in lecture_topics %}
+    <option value="{{ topic.title }}"></option>
+    {% endfor %}
+  </datalist>
+  {% endif %}
+  <div class="small muted mt-2">Обозначения: <strong>2-5</strong> — оценка, двойной клик — отсутствовал, пустая ячейка — присутствовал.</div>
 </div>
 
 <div class="panel p-3">
@@ -37,33 +53,37 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="save_grid">
 
-      <div class="table-responsive">
-        <table class="table table-sm align-middle journal-table">
+      <div class="table-responsive journal-scroll">
+        <table class="table table-sm align-middle journal-table" data-lesson-count="{{ lessons|length }}">
           <thead>
             <tr>
-              <th class="sticky-col">Студент</th>
+              <th class="sticky-col student-head">Студент</th>
               {% for lesson in lessons %}
-              <th class="text-center journal-head-cell" style="min-width:84px">
+              <th class="text-center journal-head-cell">
                 <div class="lesson-head">
                   <div class="lesson-date">{{ lesson.date|date:"d.m" }}</div>
-                  {% if lesson.topic %}
-                  <details class="topic-details">
-                    <summary class="small muted">{{ lesson.topic|truncatechars:18 }}</summary>
-                    <div class="small topic-full">{{ lesson.topic }}</div>
-                  </details>
-                  {% else %}
-                  <div class="small muted">-</div>
-                  {% endif %}
                   {% if can_edit %}
                   <input
                     class="form-control form-control-sm topic-input"
                     type="text"
                     value="{{ lesson.topic }}"
                     placeholder="Тема занятия"
+                    title="{{ lesson.topic }}"
                     data-lesson-id="{{ lesson.id }}"
                     data-last-value="{{ lesson.topic }}"
                   >
+                  {% if lecture_topics %}
+                  <div class="topic-menu" data-topic-menu="{{ lesson.id }}" hidden>
+                    {% for topic in lecture_topics %}
+                    <button class="topic-option" type="button" data-topic-value="{{ topic.title }}" title="{{ topic.title }}">{{ topic.title }}</button>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
                   <div class="small muted topic-save-state" data-state-for="{{ lesson.id }}"></div>
+                  {% elif lesson.topic %}
+                  <div class="small muted topic-readonly" title="{{ lesson.topic }}">{{ lesson.topic|truncatechars:18 }}</div>
+                  {% else %}
+                  <div class="small muted topic-readonly">-</div>
                   {% endif %}
                 </div>
               </th>
@@ -73,15 +93,16 @@
           <tbody>
             {% for row in rows %}
             <tr>
-              <td class="sticky-col">{{ row.student }}</td>
+              <td class="sticky-col student-cell"><span class="student-line"><span class="student-number">{{ forloop.counter }}</span><span class="student-name">{{ row.student }}</span></span></td>
               {% for cell in row.cells %}
-              <td class="text-center">
+              <td class="text-center journal-mark-cell">
                 {% if can_edit %}
                 <input
                   class="form-control form-control-sm text-center journal-input"
                   name="mark_{{ row.student.id }}_{{ cell.lesson.id }}"
                   value="{{ cell.mark }}"
                   maxlength="1"
+                  title="Двойной клик — отметить отсутствующим"
                   data-row="{{ cell.row_idx }}"
                   data-col="{{ cell.col_idx }}"
                   autocomplete="off"
@@ -100,7 +121,6 @@
       {% if can_edit %}
       <div class="d-flex gap-2 mt-3">
         <button class="btn btn-success" type="submit">Сохранить журнал</button>
-        <button class="btn btn-outline-secondary" type="button" id="clear-row">Очистить выделенную строку</button>
       </div>
       {% endif %}
     </form>
@@ -110,12 +130,91 @@
 </div>
 
 <style>
+  .journal-scroll {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+  .journal-fixed-head {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 1020;
+    display: none;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .journal-fixed-head.is-visible {
+    display: block;
+  }
+  .journal-fixed-head-inner {
+    overflow: hidden;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .journal-fixed-head table {
+    margin-bottom: 0;
+    table-layout: fixed;
+  }
+  .journal-fixed-head .journal-table thead,
+  .journal-fixed-head .journal-table thead th,
+  .journal-fixed-head .journal-table .sticky-col {
+    position: static;
+    top: auto;
+    left: auto;
+  }
+  .journal-table {
+    --student-col-width: 240px;
+    --lesson-col-width: 180px;
+    table-layout: fixed;
+    width: 100%;
+    min-width: 100%;
+  }
+  .journal-table thead th {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
   .journal-table .sticky-col {
     position: sticky;
     left: 0;
     background: var(--surface);
-    z-index: 2;
-    min-width: 240px;
+    z-index: 6;
+    width: var(--student-col-width);
+    min-width: var(--student-col-width);
+    max-width: var(--student-col-width);
+  }
+  .journal-table thead .sticky-col {
+    z-index: 22;
+  }
+  .journal-head-cell,
+  .journal-mark-cell {
+    width: var(--lesson-col-width);
+    min-width: var(--lesson-col-width);
+    max-width: var(--lesson-col-width);
+  }
+  .student-cell {
+    font-weight: 600;
+    white-space: normal;
+  }
+  .student-line {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    column-gap: .5rem;
+    align-items: start;
+  }
+  .student-number {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .student-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .journal-input {
     width: 56px;
@@ -126,7 +225,8 @@
     vertical-align: top;
   }
   .lesson-head {
-    min-height: 122px;
+    position: relative;
+    min-height: 72px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -139,22 +239,45 @@
     text-align: center;
     min-height: 1.2rem;
   }
-  .topic-details > summary {
-    cursor: pointer;
-    list-style: none;
+  .topic-readonly {
     text-align: center;
-  }
-  .topic-details > summary::-webkit-details-marker {
-    display: none;
-  }
-  .topic-full {
-    margin-top: .25rem;
-    white-space: normal;
-    word-break: break-word;
-    line-height: 1.2;
+    cursor: help;
   }
   .topic-input {
-    min-width: 140px;
+    width: 100%;
+    min-width: 0;
+  }
+  .topic-menu {
+    position: absolute;
+    top: 3.95rem;
+    left: 0;
+    right: 0;
+    z-index: 6;
+    max-height: 10rem;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .375rem;
+    box-shadow: 0 .5rem 1.25rem rgba(15, 23, 42, .14);
+    padding: .25rem;
+    text-align: left;
+  }
+  .topic-option {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: .35rem .5rem;
+    border-radius: .25rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topic-option:hover,
+  .topic-option:focus {
+    background: rgba(37, 99, 235, .1);
   }
   .topic-save-state {
     min-height: 1rem;
@@ -162,21 +285,87 @@
   }
 </style>
 
-{% if can_edit and lessons %}
+{% if can_edit %}
 <script>
   (() => {
     const inputs = Array.from(document.querySelectorAll('.journal-input'));
     const map = new Map(inputs.map((el) => [`${el.dataset.row}:${el.dataset.col}`, el]));
+    const journalScroll = document.querySelector('.journal-scroll');
+    const journalTable = document.querySelector('.journal-table');
+    let fixedHead = null;
+    let fixedHeadTable = null;
+    let fixedHeadInner = null;
     const topicInputs = Array.from(document.querySelectorAll('.topic-input'));
     const csrfTokenInput = document.querySelector('#journal-form input[name=\"csrfmiddlewaretoken\"]');
     const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
-    let activeRow = null;
+    const studentColWidth = 240;
+
+    function sizeJournalColumns() {
+      if (!journalScroll || !journalTable) return;
+      const lessonCount = Number(journalTable.dataset.lessonCount) || 0;
+      const visibleLessonWidth = Math.max(150, Math.floor((journalScroll.clientWidth - studentColWidth) / 5));
+      const tableWidth = studentColWidth + (lessonCount * visibleLessonWidth);
+      journalTable.style.setProperty('--lesson-col-width', `${visibleLessonWidth}px`);
+      journalTable.style.width = `${Math.max(journalScroll.clientWidth, tableWidth)}px`;
+      syncFixedHead();
+    }
+
+    function buildFixedHead() {
+      if (!journalScroll || !journalTable || fixedHead) return;
+      fixedHead = document.createElement('div');
+      fixedHead.className = 'journal-fixed-head';
+      fixedHeadInner = document.createElement('div');
+      fixedHeadInner.className = 'journal-fixed-head-inner';
+      fixedHeadTable = document.createElement('table');
+      fixedHeadTable.className = journalTable.className;
+      fixedHeadTable.innerHTML = journalTable.tHead ? journalTable.tHead.outerHTML : '';
+      fixedHeadInner.appendChild(fixedHeadTable);
+      fixedHead.appendChild(fixedHeadInner);
+      document.body.appendChild(fixedHead);
+      syncFixedHead();
+    }
+
+    function syncFixedHead() {
+      if (!journalScroll || !journalTable || !fixedHead || !fixedHeadTable || !fixedHeadInner) return;
+      const rect = journalScroll.getBoundingClientRect();
+      const topbar = document.querySelector('.topbar');
+      const topOffset = topbar ? Math.ceil(topbar.getBoundingClientRect().bottom) : 0;
+      fixedHead.style.top = `${topOffset}px`;
+      fixedHead.style.left = `${rect.left}px`;
+      fixedHead.style.width = `${rect.width}px`;
+      fixedHeadInner.style.width = `${rect.width}px`;
+      fixedHeadTable.style.width = journalTable.style.width || `${journalTable.offsetWidth}px`;
+      fixedHeadTable.style.setProperty('--lesson-col-width', getComputedStyle(journalTable).getPropertyValue('--lesson-col-width'));
+      fixedHeadInner.scrollLeft = journalScroll.scrollLeft;
+    }
+
+    function toggleFixedHead() {
+      if (!journalScroll || !journalTable || !fixedHead) return;
+      const topbar = document.querySelector('.topbar');
+      const topOffset = topbar ? Math.ceil(topbar.getBoundingClientRect().bottom) : 0;
+      const headRect = journalTable.tHead ? journalTable.tHead.getBoundingClientRect() : journalScroll.getBoundingClientRect();
+      const tableRect = journalTable.getBoundingClientRect();
+      const show = headRect.bottom <= topOffset && tableRect.bottom > topOffset + 90;
+      fixedHead.classList.toggle('is-visible', show);
+      if (show) syncFixedHead();
+    }
+
+    buildFixedHead();
+    sizeJournalColumns();
+    journalScroll?.addEventListener('scroll', () => {
+      syncFixedHead();
+    });
+    window.addEventListener('scroll', toggleFixedHead, { passive: true });
+    window.addEventListener('resize', () => {
+      sizeJournalColumns();
+      toggleFixedHead();
+    });
 
     function normalize(v) {
       const raw = (v || '').trim().toUpperCase();
       if (!raw) return '';
       const ch = raw[0];
-      if (['2','3','4','5','Н','N','П','P','О','L'].includes(ch)) return ch;
+      if (['2','3','4','5'].includes(ch)) return ch;
       return '';
     }
 
@@ -191,13 +380,13 @@
     }
 
     inputs.forEach((el) => {
-      el.addEventListener('focus', () => {
-        activeRow = Number(el.dataset.row);
-      });
-
       el.addEventListener('input', () => {
         el.value = normalize(el.value);
-        if (el.value) move(el, 0, 1);
+        if (el.value) move(el, 1, 0);
+      });
+
+      el.addEventListener('dblclick', () => {
+        el.value = el.value === 'Н' ? '' : 'Н';
       });
 
       el.addEventListener('keydown', (e) => {
@@ -207,14 +396,6 @@
         if (e.key === 'ArrowDown') { e.preventDefault(); move(el, 1, 0); }
       });
     });
-
-    const clearBtn = document.getElementById('clear-row');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (activeRow === null) return;
-        inputs.filter((el) => Number(el.dataset.row) === activeRow).forEach((el) => { el.value = ''; });
-      });
-    }
 
     async function saveTopic(input) {
       const lessonId = input.dataset.lessonId;
@@ -240,6 +421,7 @@
 
         if (!response.ok) throw new Error('save_failed');
         input.dataset.lastValue = nextValue;
+        input.title = nextValue;
         if (state) state.textContent = 'Сохранено';
       } catch (e) {
         if (state) state.textContent = 'Ошибка сохранения';
@@ -247,12 +429,53 @@
     }
 
     topicInputs.forEach((input) => {
-      input.addEventListener('blur', () => { saveTopic(input); });
+      const lessonId = input.dataset.lessonId;
+      const menu = document.querySelector(`[data-topic-menu="${lessonId}"]`);
+      const options = menu ? Array.from(menu.querySelectorAll('.topic-option')) : [];
+
+      function filterMenu() {
+        if (!menu) return;
+        const query = input.value.trim().toLowerCase();
+        options.forEach((option) => {
+          const text = option.dataset.topicValue.toLowerCase();
+          option.hidden = query && !text.includes(query);
+        });
+        menu.hidden = false;
+      }
+
+      input.addEventListener('focus', filterMenu);
+      input.addEventListener('input', filterMenu);
+      input.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (menu) menu.hidden = true;
+        }, 120);
+        saveTopic(input);
+      });
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
           input.blur();
         }
+      });
+
+      options.forEach((option) => {
+        option.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = option.dataset.topicValue;
+          input.title = input.value;
+          input.focus();
+          if (menu) menu.hidden = true;
+          saveTopic(input);
+        });
+      });
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      document.querySelectorAll('.topic-menu').forEach((menu) => {
+        const lessonId = menu.dataset.topicMenu;
+        const input = document.querySelector(`.topic-input[data-lesson-id="${lessonId}"]`);
+        if (input && (input.contains(e.target) || menu.contains(e.target))) return;
+        menu.hidden = true;
       });
     });
   })();

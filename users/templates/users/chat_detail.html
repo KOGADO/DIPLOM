@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<nav class="small mb-2">
+  <a href="{% url 'chat_list' %}">Чаты</a>
+  <span class="text-muted">/ {{ object.title }}</span>
+</nav>
+
+<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="page-title mb-1">{{ object.title }}</h1>
+    <div class="muted">Собеседник: {{ companion }}</div>
+  </div>
+</div>
+
+{% if grade_context %}
+<div class="panel p-3 mb-3">
+  <div class="small muted text-uppercase">Вопрос по оценке</div>
+  <div><strong>{{ grade_context.subject }}</strong> · {{ grade_context.type }} <strong>{{ grade_context.value }}</strong></div>
+  <div class="small muted">
+    {{ grade_context.date|date:"d.m.Y" }}{% if grade_context.topic %} · {{ grade_context.topic }}{% endif %}
+  </div>
+  <a class="small" href="{{ grade_context.url }}">Открыть журнал</a>
+</div>
+{% endif %}
+
+<div class="panel p-3 mb-3">
+  <div class="chat-thread">
+    {% for item in messages_list %}
+    <div class="d-flex mb-3 {% if item.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
+      <div class="chat-bubble {% if item.sender == request.user %}chat-own{% else %}chat-other{% endif %}">
+        <div class="small muted mb-1">{{ item.sender.get_full_name|default:item.sender.username }} · {{ item.created_at|date:"d.m.Y H:i" }}</div>
+        <div>{{ item.message|linebreaksbr }}</div>
+        {% if item.attachment %}<div class="mt-2"><a href="{{ item.attachment.url }}">Вложение</a></div>{% endif %}
+        {% if item.sender == request.user %}
+        <div class="small muted mt-1">{% if item.is_read %}прочитано{% else %}отправлено{% endif %}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="muted text-center py-4">Сообщений пока нет.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Отправить</button>
+    </form>
+  </div>
+</div>
+
+<style>
+  .chat-thread {
+    min-height: 320px;
+  }
+  .chat-bubble {
+    max-width: min(680px, 86%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: .75rem .9rem;
+    background: var(--surface);
+  }
+  .chat-own {
+    background: rgba(46, 134, 222, .12);
+    border-color: rgba(46, 134, 222, .32);
+  }
+  .chat-other {
+    background: rgba(242, 180, 66, .13);
+    border-color: rgba(242, 180, 66, .34);
+  }
+</style>
+{% endblock %}
