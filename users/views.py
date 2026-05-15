@@ -692,6 +692,10 @@ def import_students_to_group_view(request, group_id):
                     student.save(update_fields=['group'])
                     moved_students += 1
 
+            if not any([created_users, created_students, moved_students, updated_names]):
+                messages.error(request, 'В файле не найдено ни одной корректной строки с ФИО студента.')
+                return redirect('group_students_import', group_id=study_group.id)
+
             messages.success(
                 request,
                 f'Импорт завершен: users+{created_users}, students+{created_students}, перенесено {moved_students}, '
