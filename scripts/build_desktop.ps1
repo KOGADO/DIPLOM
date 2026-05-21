@@ -8,6 +8,8 @@ python -m PyInstaller `
   --windowed `
   --noconfirm `
   --clean `
+  --optimize 2 `
+  --disable-windowed-traceback `
   --add-data "templates;templates" `
   --add-data "core\templates;core\templates" `
   --add-data "users\templates;users\templates" `
@@ -15,6 +17,8 @@ python -m PyInstaller `
   --add-data "reports\templates;reports\templates" `
   --add-data "templates\registration;templates\registration" `
   --add-data "media;media" `
+  --collect-data "certifi" `
+  --copy-metadata "requests" `
   --hidden-import "psycopg" `
   --hidden-import "psycopg_binary" `
   --hidden-import "drf_spectacular" `

@@ -40,7 +40,7 @@ def find_free_port():
 
 def configure_environment():
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-    os.environ.setdefault("DJANGO_DEBUG", "1")
+    os.environ.setdefault("DJANGO_DEBUG", "0")
     os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,*")
     os.environ.setdefault("DB_ENGINE", "postgres")
     os.environ.setdefault("POSTGRES_DB", "performance_db")
@@ -54,7 +54,7 @@ def configure_logging():
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         filename=LOG_FILE,
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     logging.getLogger(__name__).info("Desktop launcher started")

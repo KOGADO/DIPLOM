@@ -11,7 +11,7 @@ if IS_FROZEN:
 PROJECT_DIR = FROZEN_BASE_DIR if IS_FROZEN else BASE_DIR
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-me')
-DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
+DEBUG = os.getenv('DJANGO_DEBUG', '0') == '1'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
